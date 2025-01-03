@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 
@@ -39,6 +40,9 @@ public class PokemonService {
 
     @Inject
     CacheService cacheService;  // Injection du service de cache
+    @Inject
+    @RestClient
+    UserServiceClient userServiceClient;
 
 
     private Map<Long, Pokemon> cachePokemon = new HashMap<>();
@@ -97,7 +101,7 @@ public class PokemonService {
 
             // Extraire les informations du Pokémon à partir de la réponse JSON
             String nom = rootNode.get("name").get("fr").asText();
-            String description = "Description non disponible"; // À ajuster si disponible dans l'API
+             // À ajuster si disponible dans l'API
 
             // Extraire les types du Pokémon
             List<String> types = new ArrayList<>();
@@ -117,6 +121,7 @@ public class PokemonService {
             stats.put("speDef", rootNode.get("stats").get("spe_def").asInt());
             stats.put("vit", rootNode.get("stats").get("vit").asInt());
 
+
             // Calculer la valeur réelle du Pokémon
             int hp = stats.get("hp");
             int atk = stats.get("atk");
@@ -127,6 +132,8 @@ public class PokemonService {
 
             // Calcul de la valeur réelle du Pokémon
             double valeurReelle = (hp * 1.5) + (atk * 1.2) + (def * 1.1) + (speAtk * 1.1) + (speDef * 1.1) + (vit * 1.0);
+
+            String description = generateDescription(nom,types, stats);
 
             // Créer un objet Pokemon avec la valeur réelle calculée
             Pokemon pokemon = new Pokemon(nom, description, (int) valeurReelle);
@@ -139,7 +146,21 @@ public class PokemonService {
         }
     }
 
-
+    // Méthode pour générer une description
+    private String generateDescription(String nom, List<String> types, Map<String, Integer> stats) {
+        String typesString = String.join(" et ", types);
+        return String.format(
+                "%s est un Pokémon de type %s avec des statistiques équilibrées : PV (%d), Attaque (%d), Défense (%d), Attaque Spéciale (%d), Défense Spéciale (%d), Vitesse (%d).",
+                nom,
+                typesString,
+                stats.get("hp"),
+                stats.get("atk"),
+                stats.get("def"),
+                stats.get("speAtk"),
+                stats.get("speDef"),
+                stats.get("vit")
+        );
+    }
     public Pokemon recupererPokemon(Long id) {
         // Vérifier si le Pokémon est dans le cache
         Pokemon pokemonCache = (Pokemon) cacheService.getFromCache(id);
@@ -261,7 +282,7 @@ public class PokemonService {
 
         // Récupérer le Pokémon et l'utilisateur
         Pokemon pokemon = em.find(Pokemon.class, pokemonId);
-        User user = em.find(User.class, userId);
+        User user = userServiceClient.getUserById(userId);
 
         if (pokemon == null || user == null) {
             throw new IllegalArgumentException("Pokémon ou utilisateur non trouvé.");
@@ -282,14 +303,14 @@ public class PokemonService {
         LocalDateTime endTime = startTime.plusMinutes(tempsNecessaire);
 
         // Simuler l'attente du temps d'entraînement (en pratique, on pourrait gérer cette attente différemment)
-        try {
-            Thread.sleep(tempsNecessaire * 60 * 1000); // Attend le temps nécessaire en millisecondes
+       /* try {
+          //  Thread.sleep(tempsNecessaire * 60 * 1000);  // Attend le temps nécessaire en millisecondes
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-        }
+        }*/
 
         // Appliquer l'augmentation des stats et de la valeur réelle
-        pokemon.setStats(entraînerPokemon(pokemon, pourcentage));
+       // pokemon.setStats(entraînerPokemon(pokemon, pourcentage));
         pokemon.setValeurReelle(pokemon.getValeurReelle() * (1 + pourcentage / 100));
 
         // Débiter l'utilisateur du coût de l'entraînement
@@ -307,7 +328,7 @@ public class PokemonService {
     // Calculer le coût en Limcoins en fonction du pourcentage
     private int calculerCoutEnLimcoins(double pourcentage) {
         // Chaque pourcentage coûte 250 Limcoins
-        return (int) (pourcentage / 1 * 250);
+        return (int) ((pourcentage / 5) * 250);
     }
 
     // Méthode d'entraînement : augmente les stats du Pokémon par pourcentage

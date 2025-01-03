@@ -66,5 +66,37 @@ public class PokemonRessource {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
     }
+
+    @PUT
+    @Path("/{pokemonId}/entrainement")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response entrainerPokemon(
+            @PathParam("pokemonId") Long pokemonId,
+            @QueryParam("userId") Long userId,
+            @QueryParam("pourcentage") double pourcentage) {
+
+        try {
+            // Appel de la méthode métier pour entraîner le Pokémon
+            if (pourcentage > 10) {
+                throw new IllegalArgumentException("Un Pokémon ne peut gagner plus de 10% par session.");
+            }
+
+             pokemonService.entrainerPokemon(pokemonId, userId, pourcentage);
+
+            return Response.ok().entity(
+                    String.format("Le Pokémon avec l'ID %d a été entraîné par l'utilisateur %d avec un gain de %.2f%%.",
+                            pokemonId, userId, pourcentage)
+            ).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(e.getMessage())
+                    .build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Une erreur est survenue lors de l'entraînement du Pokémon.")
+                    .build();
+        }
+    }
 }
 
